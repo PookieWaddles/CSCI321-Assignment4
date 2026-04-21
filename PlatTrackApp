@@ -1,0 +1,269 @@
+import SwiftUI
+import Observation
+
+// ===============================
+// MARK: - Models
+// ===============================
+
+struct Game: Identifiable {
+    let id: UUID
+    var title: String
+    var platform: String
+    var trophyStats: TrophyStats
+    var isPlatinumEarned: Bool
+    var releaseDate: Date
+}
+
+struct TrophyStats {
+    var bronze: Int
+    var silver: Int
+    var gold: Int
+    var platinum: Int
+}
+
+// ===============================
+// MARK: - ViewModel
+// ===============================
+
+@Observable
+class GameViewModel {
+    var games: [Game] = [
+        Game(id: UUID(), title: "Spider-Man 2", platform: "PS5",
+             trophyStats: TrophyStats(bronze: 30, silver: 15, gold: 5, platinum: 1),
+             isPlatinumEarned: true, releaseDate: Date()),
+        
+        Game(id: UUID(), title: "Elden Ring", platform: "PS5",
+             trophyStats: TrophyStats(bronze: 25, silver: 10, gold: 5, platinum: 0),
+             isPlatinumEarned: false, releaseDate: Date())
+    ]
+    
+    func addGame(_ game: Game) {
+        games.append(game)
+    }
+    
+    func deleteGame(at offsets: IndexSet) {
+        games.remove(atOffsets: offsets)
+    }
+}
+
+// ===============================
+// MARK: - Custom Modifiers
+// ===============================
+
+struct CardStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
+            .shadow(radius: 3)
+    }
+}
+
+struct PrimaryButton: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(8)
+    }
+}
+
+// ===============================
+// MARK: - Row View
+// ===============================
+
+struct GameRowView: View {
+    let game: Game
+    
+    var body: some View {
+        HStack {
+            Image(systemName: game.isPlatinumEarned ? "trophy.fill" : "trophy")
+                .foregroundStyle(.yellow)
+            
+            VStack(alignment: .leading) {
+                Text(game.title).font(.headline)
+                Text(game.platform).font(.subheadline).foregroundStyle(.gray)
+            }
+            
+            Spacer()
+        }
+        .modifier(CardStyle())
+    }
+}
+
+// ===============================
+// MARK: - List View
+// ===============================
+
+struct ListView: View {
+    @Environment(GameViewModel.self) var viewModel
+    
+    @State private var showSheet = false
+    @State private var showAlert = false
+    @State private var deleteIndex: IndexSet?
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(viewModel.games) { game in
+                    NavigationLink(destination: DetailView(game: game)) {
+                        GameRowView(game: game)
+                    }
+                }
+                .onDelete { indexSet in
+                    deleteIndex = indexSet
+                    showAlert = true
+                }
+            }
+            .navigationTitle("My Games")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                Button {
+                    showSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+            .sheet(isPresented: $showSheet) {
+                FormView()
+                    .environment(viewModel)
+            }
+            .alert("Delete Game?", isPresented: $showAlert) {
+                Button("Delete", role: .destructive) {
+                    if let deleteIndex {
+                        viewModel.deleteGame(at: deleteIndex)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+        }
+    }
+}
+
+// ===============================
+// MARK: - Detail View
+// ===============================
+
+struct DetailView: View {
+    let game: Game
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "gamecontroller.fill")
+                .resizable()
+                .frame(width: 100, height: 100)
+                .foregroundStyle(.blue)
+            
+            Text(game.title)
+                .font(.largeTitle)
+            
+            Text(game.platform)
+                .foregroundStyle(.gray)
+        }
+        .padding()
+        .navigationTitle(game.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// ===============================
+// MARK: - Form View (Sheet)
+// ===============================
+
+struct FormView: View {
+    @Environment(GameViewModel.self) var viewModel
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var title = ""
+    @State private var platform = "PS5"
+    @State private var releaseDate = Date()
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Game Info") {
+                    TextField("Title", text: $title)
+                    
+                    Picker("Platform", selection: $platform) {
+                        Text("PS5").tag("PS5")
+                        Text("PS4").tag("PS4")
+                    }
+                    
+                    DatePicker("Release Date", selection: $releaseDate)
+                }
+                
+                Section {
+                    Button("Save") {
+                        let newGame = Game(
+                            id: UUID(),
+                            title: title,
+                            platform: platform,
+                            trophyStats: TrophyStats(bronze: 0, silver: 0, gold: 0, platinum: 0),
+                            isPlatinumEarned: false,
+                            releaseDate: releaseDate
+                        )
+                        
+                        viewModel.addGame(newGame)
+                        dismiss()
+                    }
+                    .modifier(PrimaryButton())
+                    
+                    Button("Cancel", role: .cancel) {
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle("Add Game")
+        }
+    }
+}
+
+// ===============================
+// MARK: - Profile View
+// ===============================
+
+struct ProfileView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "person.circle.fill")
+                .resizable()
+                .frame(width: 100, height: 100)
+            
+            Text("Player Profile").font(.title)
+        }
+    }
+}
+
+// ===============================
+// MARK: - Content View
+// ===============================
+
+struct ContentView: View {
+    @State private var viewModel = GameViewModel()
+    
+    var body: some View {
+        TabView {
+            ListView()
+                .environment(viewModel)
+                .tabItem {
+                    Label("Games", systemImage: "list.bullet")
+                }
+            
+            ProfileView()
+                .tabItem {
+                    Label("Profile", systemImage: "person")
+                }
+        }
+    }
+}
+
+// ===============================
+// MARK: - Preview
+// ===============================
+
+#Preview {
+    ContentView()
+}
