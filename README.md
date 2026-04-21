@@ -18,7 +18,7 @@ PlatTrackApp is a simple iOS application built using SwiftUI that allows users t
 ## How to Run the Project
 1. Open the project in **Xcode**
 2. Select an iOS Simulator (iPhone recommended)
-3. Click the **Run (▶)** button
+3. Click the **Run** button
 4. The app will launch in the simulator
 
 ---
